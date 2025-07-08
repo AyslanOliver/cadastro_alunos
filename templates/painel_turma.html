@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Turma - {{ turma }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h2>📚 Turma: {{ turma }}</h2>
+    
+    <div class="nav-buttons">
+      <a href="{{ url_for('painel') }}" class="btn btn-secondary">🔙 Voltar ao Painel</a>
+      <a href="{{ url_for('cadastro_turma', nome_turma=turma) }}" class="btn btn-info">➕ Cadastrar Aluno</a>
+      <a href="{{ url_for('exportar_excel', nome_turma=turma) }}" class="btn btn-success">📊 Exportar Excel</a>
+      <a href="{{ url_for('logout') }}" class="btn btn-danger">🚪 Sair</a>
+    </div>
+
+    {% if alunos %}
+       <div class="table-container table-responsive">
+         <table class="table">
+          <thead>
+             <tr>
+               <th>👤 Nome</th>
+               <th>📅 Nascimento</th>
+               <th>🆔 CPF</th>
+               <th>📄 RG</th>
+               <th>📱 Celular</th>
+               <th>📍 CEP</th>
+               <th>🎓 Graduação</th>
+               <th>📸 Foto</th>
+               <th>⚙️ Ações</th>
+             </tr>
+           </thead>
+           <tbody>
+             {% for aluno in alunos %}
+               <tr>
+                 <td><strong>{{ aluno.nome }}</strong></td>
+                 <td>{{ aluno.nascimento }}</td>
+                 <td>{{ aluno.cpf }}</td>
+                 <td>{{ aluno.rg }}</td>
+                 <td>{{ aluno.celular }}</td>
+                 <td>{{ aluno.cep }}</td>
+                 <td>{{ aluno.graduacao }}</td>
+                 <td>
+                   {% if aluno.foto %}
+                     <img src="/{{ aluno.foto }}" width="60" height="60" style="border-radius: 50%; object-fit: cover;" alt="Foto de {{ aluno.nome }}">
+                   {% else %}
+                     <span style="color: var(--text-secondary);">📷 Sem foto</span>
+                   {% endif %}
+                 </td>
+                 <td>
+                   <div class="action-buttons">
+                     <a href="{{ url_for('editar_aluno', nome_turma=turma, cpf=aluno.cpf) }}" class="btn btn-sm btn-warning" title="Editar aluno">✏️</a>
+                     <button onclick="confirmarDelecao('{{ aluno.nome }}', '{{ aluno.cpf }}', '{{ turma }}')" class="btn btn-sm btn-danger" title="Deletar aluno">🗑️</button>
+                   </div>
+                 </td>
+               </tr>
+             {% endfor %}
+           </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="card-container" style="text-align: center; padding: 3rem;">
+        <h3 style="color: var(--text-secondary);">👥 Nenhum aluno cadastrado</h3>
+        <p style="color: var(--text-secondary);">Esta turma ainda não possui alunos cadastrados.</p>
+      </div>
+    {% endif %}
+  </div>
+  <script>
+    function confirmarDelecao(nome, cpf, turma) {
+      if (confirm(`Tem certeza que deseja deletar o aluno "${nome}"?\n\nEsta ação não pode ser desfeita.`)) {
+        window.location.href = `/deletar_aluno/${turma}/${cpf}`;
+      }
+    }
+  </script>
+</body>
+</html>

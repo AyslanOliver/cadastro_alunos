@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cadastrar Turma</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h2>➕ Cadastrar Nova Turma</h2>
+    
+    <div class="card-container">
+      <form method="POST">
+        <div class="form-group">
+          <label>🏫 Nome da Turma</label>
+          <input type="text" name="nome_turma" class="form-control" placeholder="Ex: Turma A - 2024" required>
+        </div>
+        
+        <div class="nav-buttons">
+          <button type="submit" class="btn btn-success">✅ Cadastrar Turma</button>
+          <a href="{{ url_for('painel') }}" class="btn btn-secondary">🔙 Voltar ao Painel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

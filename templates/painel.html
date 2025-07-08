@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel de Turmas</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h2>🏫 Painel de Turmas</h2>
+    
+    <!-- Estatísticas -->
+    <div class="stats-container">
+      <div class="stat-card">
+        <div class="stat-number">{{ total_turmas }}</div>
+        <div class="stat-label">📚 Turmas Cadastradas</div>
+      </div>
+    </div>
+    
+    <div class="nav-buttons">
+            <a href="{{ url_for('cadastrar_turma') }}" class="btn btn-primary">➕ Cadastrar Nova Turma</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-danger">🚪 Sair</a>
+        </div>
+
+    <div class="card-container">
+      {% if turmas %}
+        <ul class="list-group">
+          {% for turma in turmas %}
+            <li class="list-group-item">
+              <div class="turma-item">
+                <div class="turma-info">
+                  <h3>📚 {{ turma.nome }}</h3>
+                  <div class="aluno-count">
+                    <span class="count-badge">👥 {{ turma.contagem_alunos }} aluno{{ 's' if turma.contagem_alunos != 1 else '' }}</span>
+                  </div>
+                </div>
+                <div class="turma-actions">
+                  <a href="{{ url_for('painel_turma', nome_turma=turma.nome) }}" class="btn btn-primary">👥 Ver Alunos</a>
+                  <a href="{{ url_for('cadastro_turma', nome_turma=turma.nome) }}" class="btn btn-success">➕ Cadastrar Aluno</a>
+                </div>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+          <h3>📋 Nenhuma turma cadastrada</h3>
+          <p>Clique em "Cadastrar Nova Turma" para começar!</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>
