@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aluno Cadastrado - {{ turma }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="card-container">
+            <div class="success-header">
+                <h2>✅ Aluno Cadastrado com Sucesso!</h2>
+                <p>Turma: <strong>{{ turma }}</strong></p>
+            </div>
+
+            <!-- Mensagens Flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <div class="aluno-info">
+                <div class="foto-container">
+                    {% if aluno.foto %}
+                        {% if aluno.foto.startswith('http') %}
+                            <img src="{{ aluno.foto }}" 
+                                 alt="Foto de {{ aluno.nome }}" 
+                                 class="foto-aluno-grande"
+                                 onerror="console.log('Erro ao carregar imagem R2:', this.src); this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='uploads/' + aluno.foto.split('/')[-1]) }}" 
+                                 alt="Foto de {{ aluno.nome }}" 
+                                 class="foto-aluno-grande"
+                                 onerror="console.log('Erro ao carregar imagem local:', this.src); this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        {% endif %}
+                        <div class="sem-foto-grande" style="display: none;">
+                            <span>❌</span>
+                            <p>Erro ao carregar</p>
+                        </div>
+                    {% else %}
+                        <div class="sem-foto-grande">
+                            <span>📷</span>
+                            <p>Sem foto</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="dados-aluno">
+                    <h3>👤 {{ aluno.nome }}</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <strong>📅 Data de Nascimento:</strong>
+                            <span>{{ aluno.nascimento }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>🆔 CPF:</strong>
+                            <span>{{ aluno.cpf }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>📄 RG:</strong>
+                            <span>{{ aluno.rg }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>📱 Celular:</strong>
+                            <span>{{ aluno.celular }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>📍 CEP:</strong>
+                            <span>{{ aluno.cep }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>🥋 Graduação:</strong>
+                            <span>{{ aluno.graduacao }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>📚 Turma:</strong>
+                            <span>{{ turma }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-buttons">
+                <a href="{{ url_for('cadastro_turma', nome_turma=turma) }}" class="btn btn-primary">➕ Cadastrar Outro Aluno</a>
+                <a href="{{ url_for('painel_turma', nome_turma=turma) }}" class="btn btn-info">👥 Ver Turma</a>
+                <a href="{{ url_for('painel') }}" class="btn btn-secondary">🔙 Voltar ao Painel</a>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .success-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .success-header h2 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.8rem;
+        }
+
+        .success-header p {
+            margin: 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .aluno-info {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            align-items: flex-start;
+        }
+
+        .foto-container {
+            flex-shrink: 0;
+        }
+
+        .foto-aluno-grande {
+            width: 200px;
+            height: 200px;
+            border-radius: 15px;
+            object-fit: cover;
+            border: 4px solid var(--primary-color);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s ease;
+        }
+
+        .foto-aluno-grande:hover {
+            transform: scale(1.05);
+        }
+
+        .sem-foto-grande {
+            width: 200px;
+            height: 200px;
+            border-radius: 15px;
+            border: 4px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--card-bg);
+            color: var(--text-secondary);
+        }
+
+        .sem-foto-grande span {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .dados-aluno {
+            flex: 1;
+        }
+
+        .dados-aluno h3 {
+            margin: 0 0 1.5rem 0;
+            color: var(--primary-color);
+            font-size: 1.8rem;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .info-item {
+            padding: 1rem;
+            background: var(--card-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .info-item strong {
+            display: block;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .info-item span {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .aluno-info {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .foto-aluno-grande,
+            .sem-foto-grande {
+                width: 150px;
+                height: 150px;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</body>
+</html>

@@ -1,15 +1,21 @@
 from flask import Flask, render_template, request, redirect, url_for, session, send_file, make_response, flash
 from werkzeug.utils import secure_filename
-from pymongo import MongoClient
 import pandas as pd
 import os
 import re
 from io import BytesIO
 from datetime import datetime
+from database import DatabaseManager
+from config import SECRET_KEY, UPLOAD_FOLDER, USE_CLOUDFLARE_R2, MAX_CONTENT_LENGTH
+from cloudflare_r2 import r2_manager
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
-app.secret_key = 'chave_super_secreta'
+app.secret_key = SECRET_KEY
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
+
+# Inicializar o gerenciador de banco de dados
+db_manager = DatabaseManager()
 
 # Funções de validação
 def validar_cpf(cpf):
@@ -72,8 +78,7 @@ def validar_dados_aluno(dados):
     
     return erros
 
-client = MongoClient('mongodb+srv://ayslano37:Walkingtonn1@demolicao.fk6aapp.mongodb.net/')
-db = client['cadastro_alunos']
+# Banco de dados agora é gerenciado pelo DatabaseManager
 
 # Redirecionar para login
 @app.route('/')
@@ -89,8 +94,7 @@ def cadastro_turma(nome_turma):
         return redirect(url_for('login'))
     
     # Verificar se a turma existe
-    turma_existe = db.turmas.find_one({'nome': nome_turma})
-    if not turma_existe:
+    if not db_manager.turma_existe(nome_turma):
         return "Turma não encontrada.", 404
     
     if request.method == 'POST':
@@ -108,7 +112,7 @@ def cadastro_turma(nome_turma):
         erros = validar_dados_aluno(dados)
         
         # Verificar se CPF já existe
-        cpf_existente = db.alunos.find_one({'cpf': dados['cpf']})
+        cpf_existente = db_manager.buscar_aluno_por_cpf(dados['cpf'])
         if cpf_existente:
             erros.append('CPF já cadastrado no sistema')
         
@@ -117,33 +121,59 @@ def cadastro_turma(nome_turma):
                 flash(erro, 'error')
             return render_template('cadastro_turma_especifico.html', turma=nome_turma, dados=dados)
 
-        pasta_turma = os.path.join(app.config['UPLOAD_FOLDER'], nome_turma)
-        os.makedirs(pasta_turma, exist_ok=True)
-
+        # Processar upload da foto
         foto = request.files['foto']
-        if foto.filename != '':
-            filename = secure_filename(foto.filename)
-            caminho_foto = os.path.join(pasta_turma, filename)
-            foto.save(caminho_foto)
-        else:
-            caminho_foto = ''
+        foto_url = ''
+        
+        if foto and foto.filename != '':
+            if USE_CLOUDFLARE_R2:
+                # Upload para Cloudflare R2
+                upload_result = r2_manager.upload_file(
+                    foto,
+                    nome_turma,
+                    dados['nome'],
+                    foto.filename
+                )
+                
+                if upload_result['success']:
+                    foto_url = upload_result['url']
+                    flash('Foto enviada com sucesso para o Cloudflare R2!', 'success')
+                else:
+                    flash(f'Erro no upload da foto: {upload_result["message"]}', 'error')
+                    return render_template('cadastro_turma_especifico.html', turma=nome_turma, dados=dados)
+            else:
+                # Upload local (fallback)
+                pasta_turma = os.path.join(app.config['UPLOAD_FOLDER'], nome_turma)
+                os.makedirs(pasta_turma, exist_ok=True)
+                filename = secure_filename(foto.filename)
+                caminho_foto = os.path.join(pasta_turma, filename)
+                foto.save(caminho_foto)
+                foto_url = caminho_foto
 
-        db.alunos.insert_one({
-            'nome': dados['nome'],
-            'nascimento': dados['nascimento'],
-            'cpf': dados['cpf'],
-            'rg': dados['rg'],
-            'celular': dados['celular'],
-            'cep': dados['cep'],
-            'graduacao': dados['graduacao'],
-            'turma': nome_turma,
-            'foto': caminho_foto
-        })
+        dados_completos = dados.copy()
+        dados_completos['turma'] = nome_turma
+        dados_completos['foto'] = foto_url
+        
+        db_manager.criar_aluno(dados_completos)
         
         flash('Aluno cadastrado com sucesso!', 'success')
-        return redirect(url_for('painel_turma', nome_turma=nome_turma))
+        # Redirecionar para página de confirmação com foto
+        return redirect(url_for('aluno_cadastrado', nome_turma=nome_turma, cpf=dados['cpf']))
 
     return render_template('cadastro_turma_especifico.html', turma=nome_turma)
+
+# Página de confirmação do aluno cadastrado
+@app.route('/aluno_cadastrado/<nome_turma>/<cpf>')
+def aluno_cadastrado(nome_turma, cpf):
+    if not session.get('logado'):
+        return redirect(url_for('login'))
+    
+    aluno = db_manager.buscar_aluno_por_cpf(cpf, nome_turma)
+    if not aluno:
+        flash('Aluno não encontrado.', 'error')
+        return redirect(url_for('painel_turma', nome_turma=nome_turma))
+    
+    return render_template('aluno_cadastrado.html', aluno=aluno, turma=nome_turma)
 
 # Login
 @app.route('/login', methods=['GET', 'POST'])
@@ -164,17 +194,17 @@ def painel():
     if not session.get('logado'):
         return redirect(url_for('login'))
     
-    turmas = list(db.turmas.find())
+    turmas = db_manager.listar_turmas()
     
     # Adicionar contagem de alunos para cada turma
     turmas_com_contagem = []
     for turma in turmas:
-        contagem_alunos = db.alunos.count_documents({'turma': turma['nome']})
+        contagem_alunos = db_manager.contar_alunos_por_turma(turma['nome'])
         turma['contagem_alunos'] = contagem_alunos
         turmas_com_contagem.append(turma)
     
     # Contagem total de turmas
-    total_turmas = len(turmas)
+    total_turmas = db_manager.contar_total_turmas()
     
     return render_template('painel.html', turmas=turmas_com_contagem, total_turmas=total_turmas)
 
@@ -183,7 +213,7 @@ def painel():
 def painel_turma(nome_turma):
     if not session.get('logado'):
         return redirect(url_for('login'))
-    alunos = list(db.alunos.find({'turma': nome_turma}))
+    alunos = db_manager.listar_alunos_por_turma(nome_turma)
     return render_template('painel_turma.html', turma=nome_turma, alunos=alunos)
 
 # Cadastro de nova turma
@@ -193,7 +223,11 @@ def cadastrar_turma():
         return redirect(url_for('login'))
     if request.method == 'POST':
         nome_turma = request.form['nome_turma']
-        db.turmas.insert_one({'nome': nome_turma})
+        try:
+            db_manager.criar_turma(nome_turma)
+            flash('Turma criada com sucesso!', 'success')
+        except Exception as e:
+            flash('Erro ao criar turma. Turma já existe.', 'error')
         return redirect(url_for('painel'))
     return render_template('cadastrar_turma.html')
 
@@ -204,7 +238,7 @@ def exportar_excel(nome_turma):
         return redirect(url_for('login'))
     
     # Buscar alunos da turma
-    alunos = list(db.alunos.find({'turma': nome_turma}))
+    alunos = db_manager.listar_alunos_por_turma(nome_turma)
     
     if not alunos:
         return "Nenhum aluno encontrado nesta turma.", 404
@@ -265,18 +299,25 @@ def deletar_aluno(nome_turma, cpf):
         return redirect(url_for('login'))
     
     # Buscar o aluno para obter o caminho da foto
-    aluno = db.alunos.find_one({'cpf': cpf, 'turma': nome_turma})
+    aluno = db_manager.buscar_aluno_por_cpf(cpf, nome_turma)
     
     if aluno:
         # Deletar foto se existir
-        if aluno.get('foto') and os.path.exists(aluno['foto']):
-            try:
-                os.remove(aluno['foto'])
-            except:
-                pass  # Ignorar erro se não conseguir deletar a foto
+        if aluno.get('foto'):
+            if USE_CLOUDFLARE_R2 and aluno['foto'].startswith('http'):
+                # Deletar do Cloudflare R2
+                delete_result = r2_manager.delete_file(aluno['foto'])
+                if not delete_result['success']:
+                    flash(f'Aviso: Não foi possível deletar a foto: {delete_result["message"]}', 'warning')
+            elif os.path.exists(aluno['foto']):
+                # Deletar arquivo local
+                try:
+                    os.remove(aluno['foto'])
+                except:
+                    pass  # Ignorar erro se não conseguir deletar a foto
         
         # Deletar aluno do banco
-        db.alunos.delete_one({'cpf': cpf, 'turma': nome_turma})
+        db_manager.deletar_aluno(cpf, nome_turma)
     
     return redirect(url_for('painel_turma', nome_turma=nome_turma))
 
@@ -286,7 +327,7 @@ def editar_aluno(nome_turma, cpf):
     if not session.get('logado'):
         return redirect(url_for('login'))
     
-    aluno = db.alunos.find_one({'cpf': cpf, 'turma': nome_turma})
+    aluno = db_manager.buscar_aluno_por_cpf(cpf, nome_turma)
     if not aluno:
         return "Aluno não encontrado.", 404
     
@@ -306,7 +347,7 @@ def editar_aluno(nome_turma, cpf):
         
         # Verificar se CPF já existe (exceto o próprio aluno)
         if dados['cpf'] != cpf:  # Se mudou o CPF
-            cpf_existente = db.alunos.find_one({'cpf': dados['cpf']})
+            cpf_existente = db_manager.buscar_aluno_por_cpf(dados['cpf'])
             if cpf_existente:
                 erros.append('CPF já cadastrado no sistema')
         
@@ -315,39 +356,54 @@ def editar_aluno(nome_turma, cpf):
                 flash(erro, 'error')
             return render_template('editar_aluno.html', aluno=aluno, turma=nome_turma)
 
-        pasta_turma = os.path.join(app.config['UPLOAD_FOLDER'], nome_turma)
-        os.makedirs(pasta_turma, exist_ok=True)
-
+        # Processar upload da foto
         foto = request.files['foto']
-        caminho_foto = aluno.get('foto', '')  # Manter foto atual se não enviar nova
+        foto_url = aluno.get('foto', '')  # Manter foto atual se não enviar nova
         
-        if foto.filename != '':
+        if foto and foto.filename != '':
             # Deletar foto antiga se existir
-            if caminho_foto and os.path.exists(caminho_foto):
-                try:
-                    os.remove(caminho_foto)
-                except:
-                    pass
+            if foto_url:
+                if USE_CLOUDFLARE_R2 and foto_url.startswith('http'):
+                    # Deletar do Cloudflare R2
+                    delete_result = r2_manager.delete_file(foto_url)
+                    if not delete_result['success']:
+                        flash(f'Aviso: Não foi possível deletar a foto antiga: {delete_result["message"]}', 'warning')
+                elif os.path.exists(foto_url):
+                    # Deletar arquivo local
+                    try:
+                        os.remove(foto_url)
+                    except:
+                        pass
             
-            # Salvar nova foto
-            filename = secure_filename(foto.filename)
-            caminho_foto = os.path.join(pasta_turma, filename)
-            foto.save(caminho_foto)
+            # Upload da nova foto
+            if USE_CLOUDFLARE_R2:
+                # Upload para Cloudflare R2
+                upload_result = r2_manager.upload_file(
+                    foto,
+                    nome_turma,
+                    dados['nome'],
+                    foto.filename
+                )
+                
+                if upload_result['success']:
+                    foto_url = upload_result['url']
+                    flash('Nova foto enviada com sucesso para o Cloudflare R2!', 'success')
+                else:
+                    flash(f'Erro no upload da nova foto: {upload_result["message"]}', 'error')
+                    return render_template('editar_aluno.html', aluno=aluno, turma=nome_turma)
+            else:
+                # Upload local (fallback)
+                pasta_turma = os.path.join(app.config['UPLOAD_FOLDER'], nome_turma)
+                os.makedirs(pasta_turma, exist_ok=True)
+                filename = secure_filename(foto.filename)
+                foto_url = os.path.join(pasta_turma, filename)
+                foto.save(foto_url)
 
         # Atualizar dados do aluno
-        db.alunos.update_one(
-            {'cpf': cpf, 'turma': nome_turma},
-            {'$set': {
-                'nome': dados['nome'],
-                'nascimento': dados['nascimento'],
-                'cpf': dados['cpf'],
-                'rg': dados['rg'],
-                'celular': dados['celular'],
-                'cep': dados['cep'],
-                'graduacao': dados['graduacao'],
-                'foto': caminho_foto
-            }}
-        )
+        dados_completos = dados.copy()
+        dados_completos['foto'] = foto_url
+        
+        db_manager.atualizar_aluno(cpf, nome_turma, dados_completos)
         
         flash('Aluno atualizado com sucesso!', 'success')
         return redirect(url_for('painel_turma', nome_turma=nome_turma))

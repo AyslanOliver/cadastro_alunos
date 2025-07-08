@@ -45,7 +45,11 @@
                  <td>{{ aluno.graduacao }}</td>
                  <td>
                    {% if aluno.foto %}
-                     <img src="/{{ aluno.foto }}" width="60" height="60" style="border-radius: 50%; object-fit: cover;" alt="Foto de {{ aluno.nome }}">
+                     {% if aluno.foto.startswith('http') %}
+                       <img src="{{ aluno.foto }}" width="60" height="60" style="border-radius: 50%; object-fit: cover;" alt="Foto de {{ aluno.nome }}">
+                     {% else %}
+                       <img src="{{ url_for('static', filename='uploads/' + aluno.foto.split('/')[-1]) }}" width="60" height="60" style="border-radius: 50%; object-fit: cover;" alt="Foto de {{ aluno.nome }}">
+                     {% endif %}
                    {% else %}
                      <span style="color: var(--text-secondary);">📷 Sem foto</span>
                    {% endif %}
