@@ -72,7 +72,7 @@ def validar_dados_aluno(dados):
     
     return erros
 
-client = MongoClient('mongodb+srv://ayslano37:Walkingtonn1@demolicao.fk6aapp.mongodb.net/')
+client = MongoClient('
 db = client['cadastro_alunos']
 
 # Redirecionar para login
