@@ -78,6 +78,14 @@ class DatabaseManager:
     
     def _execute_d1_query(self, query, params=None, fetch=False):
         """Executa query no Cloudflare D1"""
+        import os
+        
+        # Log para debug
+        if os.getenv('DEBUG_D1'):
+            print(f"[D1 DEBUG] Query: {query}")
+            print(f"[D1 DEBUG] Params: {params}")
+            print(f"[D1 DEBUG] API Base: {CLOUDFLARE_D1_API_BASE}")
+        
         headers = {
             'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}',
             'Content-Type': 'application/json'
@@ -90,19 +98,59 @@ class DatabaseManager:
         if params:
             data['params'] = params
         
-        response = requests.post(
-            f'{CLOUDFLARE_D1_API_BASE}/query',
-            headers=headers,
-            json=data
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            if fetch and 'result' in result:
-                return result['result'][0]['results'] if result['result'] else []
-            return result
-        else:
-            raise Exception(f'Erro na query D1: {response.text}')
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                if os.getenv('DEBUG_D1'):
+                    print(f"[D1 DEBUG] Tentativa {attempt + 1}/{max_retries}")
+                
+                response = requests.post(
+                    f'{CLOUDFLARE_D1_API_BASE}/query',
+                    headers=headers,
+                    json=data,
+                    timeout=30  # Timeout de 30 segundos
+                )
+                
+                if os.getenv('DEBUG_D1'):
+                    print(f"[D1 DEBUG] Status: {response.status_code}")
+                    print(f"[D1 DEBUG] Response: {response.text[:500]}")
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if fetch and 'result' in result:
+                        return result['result'][0]['results'] if result['result'] else []
+                    return result
+                else:
+                    error_msg = f'Erro na query D1 (Status {response.status_code}): {response.text}'
+                    if attempt == max_retries - 1:
+                        raise Exception(error_msg)
+                    else:
+                        print(f"[D1 WARNING] {error_msg} - Tentando novamente...")
+                        continue
+                        
+            except requests.exceptions.Timeout:
+                error_msg = f'Timeout na conexão com Cloudflare D1 (tentativa {attempt + 1})'
+                if attempt == max_retries - 1:
+                    raise Exception(error_msg)
+                else:
+                    print(f"[D1 WARNING] {error_msg} - Tentando novamente...")
+                    continue
+                    
+            except requests.exceptions.ConnectionError:
+                error_msg = f'Erro de conexão com Cloudflare D1 (tentativa {attempt + 1})'
+                if attempt == max_retries - 1:
+                    raise Exception(error_msg)
+                else:
+                    print(f"[D1 WARNING] {error_msg} - Tentando novamente...")
+                    continue
+                    
+            except Exception as e:
+                error_msg = f'Erro na query D1: {str(e)}'
+                if attempt == max_retries - 1:
+                    raise Exception(error_msg)
+                else:
+                    print(f"[D1 WARNING] {error_msg} - Tentando novamente...")
+                    continue
     
     # Métodos específicos para turmas
     def criar_turma(self, nome_turma):
