@@ -133,9 +133,7 @@ class CloudflareR2Manager:
         content_types = {
             'jpg': 'image/jpeg',
             'jpeg': 'image/jpeg',
-            'png': 'image/png',
-            'gif': 'image/gif',
-            'webp': 'image/webp'
+            'png': 'image/png',            
         }
         
         return content_types.get(ext, 'application/octet-stream')

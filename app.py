@@ -1,8 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_file, make_response, flash
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, make_response, flash, send_from_directory
 from werkzeug.utils import secure_filename
 import pandas as pd
 import os
 import re
+import requests
+import shutil
 from io import BytesIO
 from datetime import datetime
 from database import DatabaseManager
@@ -255,7 +257,7 @@ def exportar_excel(nome_turma):
             'CEP': aluno.get('cep', ''),
             'Graduação': aluno.get('graduacao', ''),
             'Turma': aluno.get('turma', ''),
-            'Foto': 'Sim' if aluno.get('foto') else 'Não'
+            'Foto': ''  # Coluna vazia para as imagens
         })
     
     # Criar DataFrame
@@ -266,8 +268,10 @@ def exportar_excel(nome_turma):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, sheet_name=f'Turma_{nome_turma}', index=False)
         
-        # Ajustar largura das colunas
+        # Obter worksheet para adicionar imagens
         worksheet = writer.sheets[f'Turma_{nome_turma}']
+        
+        # Ajustar largura das colunas
         for column in worksheet.columns:
             max_length = 0
             column_letter = column[0].column_letter
@@ -279,6 +283,61 @@ def exportar_excel(nome_turma):
                     pass
             adjusted_width = min(max_length + 2, 50)
             worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        # Ajustar altura das linhas e largura da coluna de fotos
+        worksheet.column_dimensions['I'].width = 15  # Coluna da foto
+        
+        # Adicionar imagens dos alunos
+        for idx, aluno in enumerate(alunos, start=2):  # Começar na linha 2 (após cabeçalho)
+            foto_url = aluno.get('foto')
+            if foto_url:
+                try:
+                    # Criar diretório temporário se não existir
+                    temp_dir = os.path.join(os.getcwd(), 'temp_images')
+                    os.makedirs(temp_dir, exist_ok=True)
+                    
+                    if foto_url.startswith('http'):
+                        # Download da imagem do Cloudflare R2
+                        response_img = requests.get(foto_url)
+                        if response_img.status_code == 200:
+                            # Salvar temporariamente
+                            temp_filename = f'temp_foto_{idx}.jpg'
+                            temp_path = os.path.join(temp_dir, temp_filename)
+                            with open(temp_path, 'wb') as f:
+                                f.write(response_img.content)
+                            
+                            # Adicionar imagem ao Excel
+                            from openpyxl.drawing.image import Image
+                            img = Image(temp_path)
+                            img.width = 80
+                            img.height = 80
+                            worksheet.add_image(img, f'I{idx}')
+                            worksheet.row_dimensions[idx].height = 60
+                            
+                            # Remover arquivo temporário
+                            os.remove(temp_path)
+                    else:
+                        # Imagem local
+                        if os.path.exists(foto_url):
+                            from openpyxl.drawing.image import Image
+                            img = Image(foto_url)
+                            img.width = 80
+                            img.height = 80
+                            worksheet.add_image(img, f'I{idx}')
+                            worksheet.row_dimensions[idx].height = 60
+                except Exception as e:
+                    # Se houver erro, apenas pular a imagem
+                    print(f'Erro ao processar imagem do aluno {aluno.get("nome", "")}: {e}')
+                    continue
+        
+        # Limpar diretório temporário
+        try:
+            temp_dir = os.path.join(os.getcwd(), 'temp_images')
+            if os.path.exists(temp_dir):
+                import shutil
+                shutil.rmtree(temp_dir)
+        except:
+            pass
     
     output.seek(0)
     
@@ -415,5 +474,13 @@ def logout():
     session.pop('logado', None)
     return redirect(url_for('login'))
 
+# Rota para servir imagens locais
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Para desenvolvimento local
+    app.run(debug=True, host='0.0.0.0', port=5000)
+    
+# Para produção (Render), o gunicorn será usado automaticamente

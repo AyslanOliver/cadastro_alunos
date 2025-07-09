@@ -1,0 +1,3 @@
+# Este arquivo mantém a pasta uploads no repositório
+# A pasta é necessária para o funcionamento da aplicação
+# Os arquivos de upload são ignorados pelo .gitignore

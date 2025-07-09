@@ -36,7 +36,7 @@
                                  class="foto-aluno-grande"
                                  onerror="console.log('Erro ao carregar imagem R2:', this.src); this.style.display='none'; this.nextElementSibling.style.display='flex';">
                         {% else %}
-                            <img src="{{ url_for('static', filename='uploads/' + aluno.foto.split('/')[-1]) }}" 
+                            <img src="{{ url_for('uploaded_file', filename=aluno.foto) }}" 
                                  alt="Foto de {{ aluno.nome }}" 
                                  class="foto-aluno-grande"
                                  onerror="console.log('Erro ao carregar imagem local:', this.src); this.style.display='none'; this.nextElementSibling.style.display='flex';">
