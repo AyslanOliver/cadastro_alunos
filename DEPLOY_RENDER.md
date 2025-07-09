@@ -136,24 +136,41 @@ FLASK_ENV=production
 ```bash
 # Verificar requirements.txt
 # Certificar que todas as dependências estão listadas
+# Para Python 3.13, use versões atualizadas:
+# Flask==3.0.0
+# pandas==2.2.3
+# gunicorn==21.2.0
 ```
 
 **2. Erro de Start Command:**
 ```bash
 # Verificar se o arquivo principal é app.py
 # Start Command deve ser: gunicorn app:app
+# Para timeouts: gunicorn app:app --timeout 120
 ```
 
 **3. Variáveis de Ambiente:**
 ```bash
 # Verificar se todas as variáveis estão configuradas
 # Especialmente as do Cloudflare R2 e D1
+# IMPORTANTE: Adicionar DEBUG_D1=true para logs detalhados
 ```
 
 **4. Erro de Conexão com Cloudflare:**
 ```bash
 # Verificar credenciais do R2 e D1
 # Testar URLs públicas
+# Testar token da API:
+# curl -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+#   -H "Authorization: Bearer SEU_TOKEN_AQUI"
+```
+
+**5. Problemas com Cloudflare D1 (Turmas não salvam):**
+```bash
+# Sintoma: Turmas não são salvas no banco de dados
+# Solução: Consulte o arquivo TROUBLESHOOTING_RENDER.md
+# Debug: Adicione DEBUG_D1=true nas variáveis de ambiente
+# Verificação: Teste conectividade com a API Cloudflare
 ```
 
 ### Logs Úteis
