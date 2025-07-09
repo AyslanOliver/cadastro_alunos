@@ -1,6 +1,6 @@
-# Sistema de Cadastro de Alunos - Cloudflare D1
+# 🎓 Sistema de Cadastro de Alunos
 
-Sistema de cadastro de alunos adaptado para usar Cloudflare D1 como banco de dados.
+Sistema completo de cadastro de alunos com integração Cloudflare D1 (banco de dados) e Cloudflare R2 (armazenamento de imagens).
 
 ## Configuração
 
@@ -9,16 +9,24 @@ Sistema de cadastro de alunos adaptado para usar Cloudflare D1 como banco de dad
 Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
 
 ```env
-# Configurações do Cloudflare D1
+# Configurações do Cloudflare D1 (Banco de Dados)
 CLOUDFLARE_ACCOUNT_ID=seu-account-id
 CLOUDFLARE_DATABASE_ID=seu-database-id
 CLOUDFLARE_API_TOKEN=seu-api-token
 
+# Configurações do Cloudflare R2 (Armazenamento de Imagens)
+CLOUDFLARE_R2_ACCESS_KEY_ID=seu-access-key
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=sua-secret-key
+CLOUDFLARE_R2_BUCKET_NAME=seu-bucket
+CLOUDFLARE_R2_ENDPOINT_URL=https://seu-account-id.r2.cloudflarestorage.com
+CLOUDFLARE_R2_PUBLIC_URL=https://pub-xxxxxxxxx.r2.dev
+
 # Configurações do Flask
 SECRET_KEY=sua-chave-secreta-super-segura
 
-# Desenvolvimento local (usar SQLite)
-USE_LOCAL_DB=True
+# Configurações de Ambiente
+USE_LOCAL_DB=True          # False para produção
+USE_CLOUDFLARE_R2=False    # True para produção
 ```
 
 ### 2. Configuração do Cloudflare D1
@@ -83,25 +91,40 @@ python app.py
 
 Para desenvolvimento, o sistema usa SQLite local por padrão (`USE_LOCAL_DB=True`). O banco será criado automaticamente como `cadastro_alunos.db`.
 
-## Deploy para Produção
+## 🚀 Deploy para Produção
 
-Para usar em produção com Cloudflare D1:
+### Deploy no Render
 
-1. Configure `USE_LOCAL_DB=False`
-2. Configure todas as variáveis do Cloudflare
-3. Certifique-se de que as tabelas foram criadas no D1
+Para fazer deploy no Render, consulte o guia completo: **[DEPLOY_RENDER.md](DEPLOY_RENDER.md)**
 
-## Funcionalidades
+**Resumo rápido:**
+1. Configure todas as variáveis de ambiente no Render
+2. Use `USE_LOCAL_DB=False` e `USE_CLOUDFLARE_R2=True`
+3. Start Command: `gunicorn app:app`
+4. Build Command: `pip install -r requirements.txt`
 
-- ✅ Cadastro de turmas
-- ✅ Cadastro de alunos por turma
-- ✅ Edição de alunos
-- ✅ Exclusão de alunos
-- ✅ Upload de fotos
-- ✅ Exportação para Excel
-- ✅ Contadores de turmas e alunos
-- ✅ Interface responsiva
-- ✅ Combobox de graduação com faixas coloridas
+### Configuração para Produção
+
+```env
+# Produção
+USE_LOCAL_DB=False
+USE_CLOUDFLARE_R2=True
+FLASK_ENV=production
+```
+
+## ✨ Funcionalidades
+
+- ✅ **Cadastro de turmas** - Criação e gerenciamento de turmas
+- ✅ **Cadastro de alunos** - Cadastro completo por turma
+- ✅ **Edição de alunos** - Atualização de dados e fotos
+- ✅ **Exclusão de alunos** - Remoção com limpeza de arquivos
+- ✅ **Upload de fotos** - Cloudflare R2 ou armazenamento local
+- ✅ **Exportação para Excel** - Relatórios com fotos incluídas
+- ✅ **Contadores dinâmicos** - Estatísticas de turmas e alunos
+- ✅ **Interface responsiva** - Design moderno e mobile-friendly
+- ✅ **Validação de dados** - CPF, celular, CEP e outros campos
+- ✅ **Sistema de login** - Controle de acesso
+- ✅ **Graduação colorida** - Combobox com faixas por graduação
 
 ## Estrutura do Banco
 
@@ -132,7 +155,23 @@ O sistema foi migrado do MongoDB para Cloudflare D1/SQLite. As principais mudan�
 - Abstração para funcionar tanto local (SQLite) quanto em produção (D1)
 - Manutenção de todas as funcionalidades existentes
 
-## Login
+## 🔐 Login
 
 - **Usuário**: admin
 - **Senha**: 1234
+
+## 📁 Arquivos Importantes
+
+- `DEPLOY_RENDER.md` - Guia completo de deploy no Render
+- `CLOUDFLARE_R2_SETUP.md` - Configuração do Cloudflare R2
+- `.env.example` - Exemplo de variáveis de ambiente
+- `.gitignore` - Arquivos ignorados pelo Git
+
+## 🛠️ Tecnologias
+
+- **Backend**: Flask (Python)
+- **Banco de Dados**: Cloudflare D1 / SQLite
+- **Armazenamento**: Cloudflare R2
+- **Deploy**: Render
+- **Frontend**: HTML, CSS, JavaScript
+- **Servidor**: Gunicorn (produção)
